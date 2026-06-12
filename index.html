@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Asia Speaking Game</title>
+    <style>
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body {
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .box {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            border: 4px solid #ffcc00;
+        }
+
+        h1 { color: #e65100; font-size: 24px; margin-bottom: 5px; }
+        p { font-size: 16px; color: #555; }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #ccc;
+        }
+
+        /* Dialogue box with word wrapping */
+        .bubble {
+            background: #fdfdfd;
+            border: 4px solid #2196F3;
+            border-radius: 15px;
+            padding: 25px 15px;
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            min-height: 120px;
+            align-items: center;
+        }
+
+        /* Styling for the target spoken words */
+        .word-span {
+            font-size: 24px;
+            font-weight: bold;
+            color: #888888; /* Unspoken words start gray */
+            padding: 2px 6px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .word-span.spoken {
+            color: white !important;
+            background-color: #4CAF50 !important; /* Turns green when heard by mic */
+            transform: scale(1.1);
+        }
+
+        .mic-indicator {
+            font-size: 16px;
+            font-weight: bold;
+            color: #757575;
+            margin-bottom: 10px;
+            padding: 5px;
+            border-radius: 10px;
+        }
+
+        .listening {
+            color: #e91e63;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .btn {
+            background-color: #e91e63;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            width: 90%;
+            margin: 10px auto;
+            display: block;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #c2185b;
+        }
+        .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #c2185b; }
+
+        .btn-green { background-color: #4CAF50; box-shadow: 0 4px 0 #2e7d32; }
+
+        .hidden { display: none !important; }
+        .score-num { font-size: 80px; font-weight: bold; color: #4CAF50; margin: 10px 0; }
+        .stars { font-size: 40px; color: #ffb300; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<!-- STEP 1: OPTIONS -->
+<div class="box" id="step1">
+    <h1>🗣️ Asia Speaking Game</h1>
+    <p>Choose your country and place:</p>
+    
+    <select id="co" onchange="changePlace()">
+        <option value="the Philippines">the Philippines 🇵🇭</option>
+        <option value="India">India 🇮🇳</option>
+        <option value="Japan">Japan 🇯🇵</option>
+        <option value="South Korea">South Korea 🇰🇷</option>
+        <option value="Thailand">Thailand 🇹🇭</option>
+    </select>
+
+    <select id="pl"></select>
+
+    <button class="btn btn-green" onclick="start()">START GAME 🚀</button>
+</div>
+
+<!-- STEP 2: MIC GAME SCREEN -->
+<div class="box hidden" id="step2">
+    <p id="who" style="font-weight: bold; font-size: 20px; color: #2196F3; margin: 0;"></p>
+    
+    <div class="bubble" id="text-box"></div>
+    
+    <div id="mic-status" class="mic-indicator">Press the button below and speak into your iPad!</div>
+
+    <button class="btn" id="action-btn" onclick="toggleMic()">🎤 CLICK TO SPEAK</button>
+    <button class="btn btn-green hidden" id="next-btn" onclick="next()">NEXT SENTENCE ➡️</button>
+</div>
+
+<!-- STEP 3: SCORE -->
+<div class="box hidden" id="step3">
+    <h1>🎉 Finish! 🎉</h1>
+    <p>Your speaking score is:</p>
+    <div class="stars" id="final-stars">⭐⭐⭐⭐⭐</div>
+    <div class="score-num" id="total-score">100</div>
+    <button class="btn btn-green" onclick="location.reload()">PLAY AGAIN 🔄</button>
+</div>
+
+<script>
+    const map = {
+        "the Philippines": ["the Chocolate Hills", "Boracay Beach", "Manila Ocean Park"],
+        "India": ["the Taj Mahal", "the Golden Temple", "the Lotus Temple"],
+        "Japan": ["Mount Fuji", "Tokyo Disneyland", "Osaka Castle"],
+        "South Korea": ["Gyeongbokgung Palace", "N Seoul Tower", "Jeju Island"],
+        "Thailand": ["the Grand Palace", "Chiang Mai Temple", "Phuket Beach"]
+    };
+
+    function changePlace() {
+        const pSel = document.getElementById('pl');
+        pSel.innerHTML = "";
+        map[document.getElementById('co').value].forEach(place => {
+            let o = document.createElement('option');
+            o.value = place; o.innerText = place;
+            pSel.appendChild(o);
+        });
+    }
+    changePlace();
+
+    let lines = [];
+    let idx = 0;
+    let spokenWordsCount = 0;
+    let targetWordsArray = [];
+    let recognition = null;
+    let isListening = false;
+    let totalAttempts = 0;
+
+    // Browser speech recognition verification
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert("Web Speech API is not supported in this browser. Please use updated Safari on iPad or Chrome.");
+    } else {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US'; // Sets engine to look for English speech patterns
+    }
+
+    function start() {
+        let c = document.getElementById('co').value;
+        let p = document.getElementById('pl').value;
+
+        lines = [
+            { name: "Person A 🧑‍🚀", raw: ["Do", "you", "know", c, "?"] },
+            { name: "Person B 👩‍🎨", raw: ["Yes!", c, "is", "a", "country", "in", "Asia."] },
+            { name: "Person A 🧑‍🚀", raw: ["What", "famous", "place", "is", "in", c, "?"] },
+            { name: "Person B 👩‍🎨", raw: [p, "is", "a", "famous", "place", "in", c, "."] },
+            { name: "Person A 🧑‍🚀", raw: ["Wow!", "I", "want", "to", "visit", "it."] }
+        ];
+
+        document.getElementById('step1').classList.add('hidden');
+        document.getElementById('step2').classList.remove('hidden');
+        loadSentence();
+    }
+
+    function loadSentence() {
+        spokenWordsCount = 0;
+        targetWordsArray = [];
+        
+        document.getElementById('who').innerText = lines[idx].name;
+        document.getElementById('next-btn').classList.add('hidden');
+        document.getElementById('action-btn').classList.remove('hidden');
+        resetMicButton();
+
+        const textBox = document.getElementById('text-box');
+        textBox.innerHTML = "";
+
+        // Put each word into its own tracking tag
+        lines[idx].raw.forEach((word, wordIdx) => {
+            let span = document.createElement('span');
+            span.className = "word-span";
+            span.innerText = word;
+            span.id = `w-${wordIdx}`;
+            textBox.appendChild(span);
+
+            // Save clean version without grammar markers for accurate engine comparison
+            let cleanWord = word.toLowerCase().replace(/[.,!?]/g, "");
+            if (cleanWord.trim() !== "") {
+                targetWordsArray.push({ id: `w-${wordIdx}`, text: cleanWord, processed: false });
+            }
+        });
+    }
+
+    function toggleMic() {
+        if (!recognition) return;
+        
+        if (!isListening) {
+            try {
+                recognition.start();
+            } catch(e) { console.log(e); }
+        } else {
+            recognition.stop();
+        }
+    }
+
+    if (recognition) {
+        recognition.onstart = function() {
+            isListening = true;
+            const btn = document.getElementById('action-btn');
+            btn.innerHTML = "🛑 STOP LISTENING";
+            btn.style.backgroundColor = "#f44336";
+            
+            const status = document.getElementById('mic-status');
+            status.className = "mic-indicator listening";
+            status.innerText = "🎤 iPad internal microphone is OPEN. Speak now!";
+        };
+
+        recognition.onend = function() {
+            isListening = false;
+            if (spokenWordsCount < targetWordsArray.length) {
+                resetMicButton();
+            }
+        };
+
+        recognition.onresult = function(event) {
+            let fullTranscript = "";
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                fullTranscript += event.results[i][0].transcript;
+            }
+            
+            let spokenTokens = fullTranscript.toLowerCase().split(/\s+/);
+
+            // EFL Match Engine: Scan spoken audio text tokens against dialogue elements
+            targetWordsArray.forEach(target => {
+                if (!target.processed) {
+                    spokenTokens.forEach(token => {
+                        // Check if word or subphrase matches (handles multi-word entries like "the Philippines")
+                        if (token.includes(target.text) || target.text.includes(token)) {
+                            target.processed = true;
+                            document.getElementById(target.id).classList.add('spoken');
+                            spokenWordsCount++;
+                        }
+                    });
+                }
+            });
+
+            // Sentence is successfully completed by speech
+            if (spokenWordsCount >= targetWordsArray.length) {
+                recognition.stop();
+                document.getElementById('action-btn').classList.add('hidden');
+                document.getElementById('next-btn').classList.remove('hidden');
+                
+                const status = document.getElementById('mic-status');
+                status.className = "mic-indicator";
+                status.style.color = "#4CAF50";
+                status.innerText = "🎉 Wonderful! Everything matched. Click NEXT.";
+            }
+        };
+        
+        recognition.onerror = function() {
+            totalAttempts++; // track system errors/silence to accurately grade at the end
+        };
+    }
+
+    function resetMicButton() {
+        const btn = document.getElementById('action-btn');
+        btn.innerHTML = "🎤 CLICK TO SPEAK";
+        btn.style.backgroundColor = "#e91e63";
+        
+        const status = document.getElementById('mic-status');
+        status.className = "mic-indicator";
+        status.innerText = "Press the button and speak directly into the device frame.";
+    }
+
+    function next() {
+        idx++;
+        if(idx < lines.length) {
+            loadSentence();
+        } else {
+            showScore();
+        }
+    }
+
+    function showScore() {
+        document.getElementById('step2').classList.add('hidden');
+        document.getElementById('step3').classList.remove('hidden');
+        
+        // Dynamic Grading system between 50 and 100 based on tracking mic attempt errors
+        let calculatedScore = 100 - (totalAttempts * 5);
+        if (calculatedScore < 50) calculatedScore = 50;
+
+        document.getElementById('total-score').innerText = calculatedScore;
+
+        let stars = document.getElementById('final-stars');
+        if(calculatedScore >= 90) stars.innerText = "⭐⭐⭐⭐⭐";
+        else if(calculatedScore >= 75) stars.innerText = "⭐⭐⭐⭐";
+        else stars.innerText = "⭐⭐⭐";
+    }
+</script>
+
+</body>
+</html>
